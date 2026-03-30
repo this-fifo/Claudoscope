@@ -37,8 +37,9 @@ struct FullWindowView: View {
     @State private var selectedSettingsSection: String?
 
     // Sidebar resize
-    @SceneStorage("sidebarWidth") private var sidebarWidth: Double = 240
+    @SceneStorage("sidebarWidth") private var sidebarWidth: Double = 260
     @State private var dragStartWidth: CGFloat?
+    @SceneStorage("sidebarCollapsed") private var sidebarCollapsed = false
 
     var body: some View {
         ZStack {
@@ -94,35 +95,45 @@ struct FullWindowView: View {
                 .keyboardShortcut("k", modifiers: .command)
                 .opacity(0)
                 .frame(width: 0, height: 0)
+            Button("") {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    sidebarCollapsed.toggle()
+                }
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+            .opacity(0)
+            .frame(width: 0, height: 0)
         }
     }
 
     private var threeColumnLayout: some View {
         HStack(spacing: 0) {
-            RailView(selected: $selectedRail)
+            RailView(selected: $selectedRail, sidebarCollapsed: $sidebarCollapsed)
 
-            Divider()
+            if !sidebarCollapsed {
+                Divider()
 
-            SidebarView(
-                rail: selectedRail,
-                width: sidebarWidth,
-                selectedProjectId: $selectedProjectId,
-                selectedSessionId: $selectedSessionId,
-                selectedPlanFilename: $selectedPlanFilename,
-                selectedHookEventId: $selectedHookEventId,
-                selectedCommandName: $selectedCommandName,
-                selectedSkillName: $selectedSkillName,
-                selectedMcpName: $selectedMcpName,
-                selectedMemoryId: $selectedMemoryId,
-                selectedMemoryProjectId: $selectedMemoryProjectId,
-                selectedSettingsSection: $selectedSettingsSection,
-                selectedLintResultId: $selectedLintResultId,
-                hiddenLintSeverities: $hiddenLintSeverities,
-                selectedHealthItem: $selectedHealthItem,
-                selectedTimelineDay: $selectedTimelineDay
-            )
+                SidebarView(
+                    rail: selectedRail,
+                    width: sidebarWidth,
+                    selectedProjectId: $selectedProjectId,
+                    selectedSessionId: $selectedSessionId,
+                    selectedPlanFilename: $selectedPlanFilename,
+                    selectedHookEventId: $selectedHookEventId,
+                    selectedCommandName: $selectedCommandName,
+                    selectedSkillName: $selectedSkillName,
+                    selectedMcpName: $selectedMcpName,
+                    selectedMemoryId: $selectedMemoryId,
+                    selectedMemoryProjectId: $selectedMemoryProjectId,
+                    selectedSettingsSection: $selectedSettingsSection,
+                    selectedLintResultId: $selectedLintResultId,
+                    hiddenLintSeverities: $hiddenLintSeverities,
+                    selectedHealthItem: $selectedHealthItem,
+                    selectedTimelineDay: $selectedTimelineDay
+                )
 
-            SidebarResizeHandle(sidebarWidth: $sidebarWidth, dragStartWidth: $dragStartWidth)
+                SidebarResizeHandle(sidebarWidth: $sidebarWidth, dragStartWidth: $dragStartWidth)
+            }
 
             MainPanelView(
                 rail: selectedRail,
@@ -144,6 +155,7 @@ struct FullWindowView: View {
                 }
             )
         }
+        .animation(.easeInOut(duration: 0.2), value: sidebarCollapsed)
     }
 
     @ViewBuilder
@@ -187,8 +199,8 @@ private struct SidebarResizeHandle: View {
     @State private var isHovered = false
 
     private let minWidth: CGFloat = 180
-    private let maxWidth: CGFloat = 400
-    private let defaultWidth: CGFloat = 240
+    private let maxWidth: CGFloat = 600
+    private let defaultWidth: CGFloat = 260
 
     var body: some View {
         Rectangle()

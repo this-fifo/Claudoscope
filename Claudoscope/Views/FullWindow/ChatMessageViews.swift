@@ -20,10 +20,17 @@ struct UserMessageBubble: View {
             VStack(alignment: .trailing, spacing: 4) {
                 MarkdownContentView(content: displayText, fontSize: 13)
                     .textSelection(.enabled)
-                    .padding(12)
-                    .background(Color.blue.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .frame(maxWidth: 600, alignment: .trailing)
+                    .padding(Spacing.messagePadding)
+                    .background(Color.accentColor.opacity(0.08))
+                    .clipShape(
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: 16,
+                            bottomLeadingRadius: 16,
+                            bottomTrailingRadius: 4,
+                            topTrailingRadius: 16
+                        )
+                    )
+                    .frame(maxWidth: 700, alignment: .trailing)
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
@@ -70,7 +77,9 @@ struct AssistantMessageView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Header with Claude avatar and model badge
+            Divider()
+                .padding(.vertical, 4)
+
             HStack(spacing: 6) {
                 ClaudeAvatarView(size: 20)
 
@@ -120,7 +129,7 @@ struct AssistantMessageView: View {
                 CollapsibleTextView(content: textContent, fontSize: 13)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.turnSpacing / 2)
     }
 
     @ViewBuilder
@@ -215,6 +224,6 @@ struct CollapsibleTextView: View {
 
     private var isLongContent: Bool {
         let lineCount = content.components(separatedBy: "\n").count
-        return lineCount > 15 || content.count > 1500
+        return lineCount > 20 || content.count > 2000
     }
 }

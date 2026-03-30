@@ -5,6 +5,9 @@ struct ChatView: View {
     @State private var isNearTop = true
     @State private var isNearBottom = false
     @State private var searchText = ""
+    @State private var debouncedSearchText = ""
+    @State private var searchTask: Task<Void, Never>?
+    @State private var matchingIndices: [Int] = []
     @State private var currentMatchIndex = 0
 
     private var turnDurations: [Int: TurnDuration] {
@@ -40,17 +43,27 @@ struct ChatView: View {
         return dict
     }
 
-    private var matchingIndices: [Int] {
+    private static func computeMatchingIndices(
+        for searchText: String,
+        records: [ParsedRecordRaw],
+        toolResultMap: [String: ToolResultEntry]
+    ) -> [Int] {
         guard !searchText.isEmpty else { return [] }
         let query = searchText.lowercased()
-        return session.records.enumerated().compactMap { index, record in
+        return records.enumerated().compactMap { index, record in
             guard record.type == .user || record.type == .assistant else { return nil }
-            if recordContainsQuery(record, query: query) { return index }
+            if recordContainsQuery(record, query: query, toolResultMap: toolResultMap) {
+                return index
+            }
             return nil
         }
     }
 
-    private func recordContainsQuery(_ record: ParsedRecordRaw, query: String) -> Bool {
+    private static func recordContainsQuery(
+        _ record: ParsedRecordRaw,
+        query: String,
+        toolResultMap: [String: ToolResultEntry]
+    ) -> Bool {
         // Check top-level text
         if let textContent = record.message?.content?.textContent,
            textContent.lowercased().contains(query) {
@@ -70,7 +83,7 @@ struct ChatView: View {
                         }
                     }
                 }
-                if let toolId = block.id, let result = session.toolResultMap[toolId] {
+                if let toolId = block.id, let result = toolResultMap[toolId] {
                     if result.content.lowercased().contains(query) {
                         return true
                     }
@@ -102,11 +115,35 @@ struct ChatView: View {
                 }
                 scrollButtons(proxy: proxy)
             }
-            .onChange(of: searchText) { _, _ in
-                currentMatchIndex = 0
-                if let first = matchingIndices.first {
-                    withAnimation {
-                        proxy.scrollTo("record-\(first)", anchor: .center)
+            .onChange(of: searchText) { _, newValue in
+                searchTask?.cancel()
+                if newValue.isEmpty {
+                    debouncedSearchText = ""
+                    return
+                }
+                searchTask = Task {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    guard !Task.isCancelled else { return }
+                    debouncedSearchText = newValue
+                }
+            }
+            .onChange(of: debouncedSearchText) { _, newValue in
+                let records = session.records
+                let toolResultMap = session.toolResultMap
+                Task {
+                    let indices = await Task.detached {
+                        ChatView.computeMatchingIndices(
+                            for: newValue,
+                            records: records,
+                            toolResultMap: toolResultMap
+                        )
+                    }.value
+                    matchingIndices = indices
+                    currentMatchIndex = 0
+                    if let first = indices.first {
+                        withAnimation {
+                            proxy.scrollTo("record-\(first)", anchor: .center)
+                        }
                     }
                 }
             }
@@ -118,6 +155,7 @@ struct ChatView: View {
             searchText: $searchText,
             currentMatchIndex: $currentMatchIndex,
             matchCount: matchingIndices.count,
+            isSearchPending: !searchText.isEmpty && searchText != debouncedSearchText,
             onNavigate: { direction in
                 guard !matchingIndices.isEmpty else { return }
                 if direction == .next {
@@ -240,7 +278,7 @@ struct ChatView: View {
             AssistantMessageView(
                 record: record,
                 toolResultMap: session.toolResultMap,
-                searchText: searchText,
+                searchText: debouncedSearchText,
                 turnDuration: turnDurations[index],
                 parallelToolCount: parallelToolCounts[index] ?? 0
             )
@@ -266,6 +304,7 @@ struct ChatSearchBar: View {
     @Binding var searchText: String
     @Binding var currentMatchIndex: Int
     let matchCount: Int
+    var isSearchPending = false
     let onNavigate: (SearchDirection) -> Void
 
     var body: some View {
@@ -282,9 +321,14 @@ struct ChatSearchBar: View {
                 }
 
             if !searchText.isEmpty {
-                Text(matchCount == 0 ? "No matches" : "\(currentMatchIndex + 1) of \(matchCount)")
-                    .font(Typography.code)
-                    .foregroundStyle(.secondary)
+                if isSearchPending {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Text(matchCount == 0 ? "No matches" : "\(currentMatchIndex + 1) of \(matchCount)")
+                        .font(Typography.code)
+                        .foregroundStyle(.secondary)
+                }
 
                 Button { onNavigate(.previous) } label: {
                     Image(systemName: "chevron.up")

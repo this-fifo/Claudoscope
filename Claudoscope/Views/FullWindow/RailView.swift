@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RailView: View {
     @Binding var selected: RailItem
+    @Binding var sidebarCollapsed: Bool
 
     var body: some View {
         VStack(spacing: 4) {
@@ -28,6 +29,21 @@ struct RailView: View {
             Divider()
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    sidebarCollapsed.toggle()
+                }
+            } label: {
+                Image(systemName: sidebarCollapsed ? "sidebar.right" : "sidebar.left")
+                    .font(.system(size: 13))
+                    .frame(width: 28, height: 22)
+                    .frame(width: 48, height: 40)
+                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(sidebarCollapsed ? "Show Sidebar" : "Hide Sidebar")
 
             // Settings
             RailButton(item: .settings, isSelected: selected == .settings) {

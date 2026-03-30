@@ -40,6 +40,9 @@ struct MarkdownContentView: View {
         case .blockquote(let text):
             blockquoteView(text)
 
+        case .taskList(let items):
+            taskListView(items: items)
+
         case .table(let headers, let rows):
             tableView(headers: headers, rows: rows)
 
@@ -156,6 +159,25 @@ struct MarkdownContentView: View {
                     inlineMarkdownText(item.text)
                         .font(.system(size: fontSize))
                 }
+            }
+        }
+    }
+
+    // MARK: - Task List
+
+    @ViewBuilder
+    private func taskListView(items: [TaskListItem]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: item.checked ? "checkmark.square.fill" : "square")
+                        .foregroundStyle(item.checked ? .green : .secondary)
+                        .font(.system(size: fontSize))
+
+                    inlineMarkdownText(item.text)
+                        .font(.system(size: fontSize))
+                }
+                .padding(.leading, CGFloat(item.indent) * 16)
             }
         }
     }

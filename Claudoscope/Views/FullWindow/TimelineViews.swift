@@ -156,14 +156,7 @@ struct TimelineMainPanelView: View {
     let entries: [HistoryEntry]
     let isLoading: Bool
 
-    private static let projectColors: [Color] = [
-        .blue.opacity(0.7),
-        .green.opacity(0.7),
-        .orange.opacity(0.7),
-        .pink.opacity(0.7),
-        .indigo.opacity(0.7),
-        .yellow.opacity(0.7)
-    ]
+    @SceneStorage("timelineLayout") private var layout = "vertical"
 
     private var groupedByDay: [(key: String, entries: [HistoryEntry])] {
         let calendar = Calendar.current
@@ -201,13 +194,40 @@ struct TimelineMainPanelView: View {
                     message: "History entries from your Claude Code sessions will appear here."
                 )
             } else {
-                timelineContent
+                VStack(spacing: 0) {
+                    layoutPicker
+                    if layout == "horizontal" {
+                        HorizontalTimelineView(entries: entries)
+                    } else {
+                        verticalTimelineContent
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var timelineContent: some View {
+    private var layoutPicker: some View {
+        HStack {
+            Spacer()
+            Picker("Layout", selection: $layout) {
+                Image(systemName: "list.bullet")
+                    .accessibilityLabel("Vertical")
+                    .tag("vertical")
+                Image(systemName: "chart.bar.horizontal.page")
+                    .accessibilityLabel("Horizontal")
+                    .tag("horizontal")
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 80)
+            .labelsHidden()
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+    }
+
+    private var verticalTimelineContent: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(groupedByDay, id: \.key) { group in
@@ -247,7 +267,7 @@ struct TimelineMainPanelView: View {
 
     @ViewBuilder
     private func timelineRow(_ entry: HistoryEntry) -> some View {
-        let dotColor = colorForProject(entry.project)
+        let dotColor = projectColor(entry.project)
 
         HStack(alignment: .top, spacing: 0) {
             // Spine with dot
@@ -294,13 +314,6 @@ struct TimelineMainPanelView: View {
         }
     }
 
-    private func colorForProject(_ path: String?) -> Color {
-        guard let path else { return Self.projectColors[0] }
-        let hash = abs(path.hashValue)
-        let index = hash % Self.projectColors.count
-        return Self.projectColors[index]
-    }
-
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
@@ -309,7 +322,232 @@ struct TimelineMainPanelView: View {
 
 }
 
+// MARK: - Horizontal Timeline View
+
+struct HorizontalTimelineView: View {
+    let entries: [HistoryEntry]
+
+    @State private var selectedDate = Date()
+
+    private static let hourWidth: CGFloat = 80
+    private static let laneHeight: CGFloat = 48
+    private static let projectColumnWidth: CGFloat = 150
+    private static let pillMaxWidth: CGFloat = 100
+
+    private var dayLabel: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(selectedDate) {
+            return "Today"
+        } else if calendar.isDateInYesterday(selectedDate) {
+            return "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEE, MMM d"
+            return formatter.string(from: selectedDate)
+        }
+    }
+
+    private var entriesForDay: [HistoryEntry] {
+        let calendar = Calendar.current
+        return entries.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }
+    }
+
+    private var projectLanes: [(name: String, path: String?, entries: [HistoryEntry])] {
+        let grouped = Dictionary(grouping: entriesForDay) { $0.project ?? "" }
+        return grouped
+            .map { key, values in
+                let name = projectLabel(key.isEmpty ? nil : key) ?? "Unknown"
+                return (name: name, path: key.isEmpty ? nil : key, entries: values.sorted { $0.timestamp < $1.timestamp })
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var hourRange: (start: Int, end: Int) {
+        guard !entriesForDay.isEmpty else { return (9, 18) }
+        let calendar = Calendar.current
+        let hours = entriesForDay.map { calendar.component(.hour, from: $0.timestamp) }
+        let minHour = max(0, (hours.min() ?? 9) - 1)
+        let maxHour = min(23, (hours.max() ?? 17) + 1)
+        return (minHour, maxHour)
+    }
+
+    private var contentWidth: CGFloat {
+        let range = hourRange
+        return CGFloat(range.end - range.start + 1) * Self.hourWidth
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            dayNavigationBar
+            Divider()
+
+            if entriesForDay.isEmpty {
+                EmptyStateView(
+                    icon: "calendar",
+                    title: "No entries",
+                    message: "No history entries for \(dayLabel)."
+                )
+            } else {
+                swimlaneGrid
+            }
+        }
+    }
+
+    private var dayNavigationBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            .buttonStyle(.plain)
+
+            Text(dayLabel)
+                .font(Typography.bodyMedium)
+                .frame(width: 100)
+
+            Button {
+                selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 8)
+    }
+
+    private var swimlaneGrid: some View {
+        let range = hourRange
+
+        return HStack(alignment: .top, spacing: 0) {
+            // Fixed project name column
+            VStack(alignment: .leading, spacing: 0) {
+                // Spacer matching the time header height
+                Color.clear
+                    .frame(height: 24)
+
+                ForEach(Array(projectLanes.enumerated()), id: \.offset) { index, lane in
+                    HStack(spacing: 0) {
+                        Text(lane.name)
+                            .font(Typography.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, Spacing.sm)
+                    }
+                    .frame(height: Self.laneHeight)
+                    .background(index.isMultiple(of: 2) ? Color.primary.opacity(0.02) : Color.primary.opacity(0.04))
+                }
+            }
+            .frame(width: Self.projectColumnWidth)
+
+            Divider()
+
+            // Scrollable time content
+            ScrollView(.horizontal) {
+                VStack(alignment: .leading, spacing: 0) {
+                    timeHeader(range: range)
+
+                    ForEach(Array(projectLanes.enumerated()), id: \.offset) { index, lane in
+                        laneRow(lane: lane, range: range, index: index)
+                    }
+                }
+                .frame(width: contentWidth)
+            }
+        }
+    }
+
+    private func timeHeader(range: (start: Int, end: Int)) -> some View {
+        ZStack(alignment: .leading) {
+            ForEach(range.start...range.end, id: \.self) { hour in
+                let x = CGFloat(hour - range.start) * Self.hourWidth
+
+                Text(formatHourLabel(hour))
+                    .font(Typography.micro)
+                    .foregroundStyle(.tertiary)
+                    .position(x: x + Self.hourWidth / 2, y: 12)
+            }
+        }
+        .frame(width: contentWidth, height: 24)
+    }
+
+    private func laneRow(
+        lane: (name: String, path: String?, entries: [HistoryEntry]),
+        range: (start: Int, end: Int),
+        index: Int
+    ) -> some View {
+        let color = projectColor(lane.path)
+
+        return ZStack(alignment: .leading) {
+            // Lane background
+            Rectangle()
+                .fill(index.isMultiple(of: 2) ? Color.primary.opacity(0.02) : Color.primary.opacity(0.04))
+
+            // Hour grid lines
+            ForEach(range.start...range.end, id: \.self) { hour in
+                let x = CGFloat(hour - range.start) * Self.hourWidth
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.1))
+                    .frame(width: 1)
+                    .offset(x: x)
+            }
+
+            // Entry pills
+            ForEach(lane.entries) { entry in
+                entryPill(entry: entry, color: color, rangeStart: range.start)
+            }
+        }
+        .frame(width: contentWidth, height: Self.laneHeight)
+    }
+
+    private func entryPill(entry: HistoryEntry, color: Color, rangeStart: Int) -> some View {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: entry.timestamp)
+        let minute = calendar.component(.minute, from: entry.timestamp)
+        let x = CGFloat(hour - rangeStart) * Self.hourWidth + CGFloat(minute) / 60.0 * Self.hourWidth
+
+        return Text(entry.display)
+            .font(Typography.micro)
+            .lineLimit(1)
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .frame(maxWidth: Self.pillMaxWidth, alignment: .leading)
+            .background(color.opacity(0.15))
+            .clipShape(Capsule())
+            .overlay(Capsule().strokeBorder(color.opacity(0.3), lineWidth: 1))
+            .help(entry.display)
+            .offset(x: x)
+    }
+
+    private func formatHourLabel(_ hour: Int) -> String {
+        let period = hour >= 12 ? "PM" : "AM"
+        let displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour)
+        return "\(displayHour)\(period)"
+    }
+}
+
 // MARK: - Helpers
+
+private let timelineProjectColors: [Color] = [
+    .blue.opacity(0.7),
+    .green.opacity(0.7),
+    .orange.opacity(0.7),
+    .pink.opacity(0.7),
+    .indigo.opacity(0.7),
+    .yellow.opacity(0.7)
+]
+
+private func projectColor(_ path: String?) -> Color {
+    guard let path else { return timelineProjectColors[0] }
+    let hash = abs(path.hashValue)
+    let index = hash % timelineProjectColors.count
+    return timelineProjectColors[index]
+}
 
 private func projectLabel(_ path: String?) -> String? {
     guard let path else { return nil }

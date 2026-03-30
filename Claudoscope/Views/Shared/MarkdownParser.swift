@@ -10,6 +10,7 @@ enum MarkdownBlock: Identifiable {
     case orderedList(items: [ListItem])
     case blockquote(text: String)
     case table(headers: [String], rows: [[String]])
+    case taskList(items: [TaskListItem])
     case horizontalRule
     case empty
 
@@ -22,6 +23,7 @@ enum MarkdownBlock: Identifiable {
         case .orderedList(let items): return "ol-\(items.hashValue)"
         case .blockquote(let text): return "bq-\(text.hashValue)"
         case .table(let headers, _): return "tbl-\(headers.hashValue)"
+        case .taskList(let items): return "task-\(items.hashValue)"
         case .horizontalRule: return "hr-\(UUID().uuidString)"
         case .empty: return "empty-\(UUID().uuidString)"
         }
@@ -29,6 +31,12 @@ enum MarkdownBlock: Identifiable {
 }
 
 struct ListItem: Hashable {
+    let text: String
+    let indent: Int
+}
+
+struct TaskListItem: Hashable {
+    let checked: Bool
     let text: String
     let indent: Int
 }
@@ -128,6 +136,30 @@ func parseMarkdown(_ input: String) -> [MarkdownBlock] {
             continue
         }
 
+        // Task list (must be checked before unordered list since `- [x]` also matches `- `)
+        if trimmed.range(of: #"^- \[[ xX]\] "#, options: .regularExpression) != nil {
+            var items: [TaskListItem] = []
+            while i < lines.count {
+                let l = lines[i]
+                let lt = l.trimmingCharacters(in: .whitespaces)
+                if lt.range(of: #"^- \[[ xX]\] "#, options: .regularExpression) != nil {
+                    let indent = l.prefix(while: { $0 == " " || $0 == "\t" }).count / 2
+                    let checked = lt.hasPrefix("- [x] ") || lt.hasPrefix("- [X] ")
+                    let itemText = String(lt.dropFirst(6))
+                    items.append(TaskListItem(checked: checked, text: itemText, indent: indent))
+                    i += 1
+                } else if lt.isEmpty {
+                    break
+                } else {
+                    break
+                }
+            }
+            if !items.isEmpty {
+                blocks.append(.taskList(items: items))
+            }
+            continue
+        }
+
         // Unordered list
         if trimmed.range(of: #"^[-*+] "#, options: .regularExpression) != nil {
             var items: [ListItem] = []
@@ -193,6 +225,7 @@ func parseMarkdown(_ input: String) -> [MarkdownBlock] {
             let l = lines[i]
             let lt = l.trimmingCharacters(in: .whitespaces)
             if lt.isEmpty || lt.hasPrefix("```") || lt.hasPrefix("#") || lt.hasPrefix(">") || lt.hasPrefix("|") ||
+               lt.range(of: #"^- \[[ xX]\] "#, options: .regularExpression) != nil ||
                lt.range(of: #"^[-*+] "#, options: .regularExpression) != nil ||
                lt.range(of: #"^\d+[.)]\s"#, options: .regularExpression) != nil ||
                lt.range(of: #"^[-*_]{3,}$"#, options: .regularExpression) != nil {

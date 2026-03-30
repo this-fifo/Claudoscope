@@ -39,18 +39,9 @@ struct ClaudoscopeApp: App {
     }
 }
 
-/// Loads the custom menu bar icon from bundle resources
+/// Menu bar icon using SF Symbols
 struct MenuBarIcon: View {
     var body: some View {
-        if let url = Bundle.main.url(forResource: "menu-bar-icon", withExtension: "png"),
-           let nsImage = NSImage(contentsOf: url) {
-            nsImage.isTemplate = true
-            return AnyView(
-                Image(nsImage: nsImage)
-                    .renderingMode(.template)
-            )
-        } else {
-            return AnyView(Image(systemName: "chevron.left.forwardslash.chevron.right"))
-        }
+        Image(systemName: "apple.terminal")
     }
 }

@@ -45,6 +45,9 @@ struct RichMarkdownContentView: View {
         case .blockquote(let text):
             richBlockquoteView(text)
 
+        case .taskList(let items):
+            richTaskListView(items: items)
+
         case .table(let headers, let rows):
             richTableView(headers: headers, rows: rows)
 
@@ -219,6 +222,26 @@ struct RichMarkdownContentView: View {
                     richInlineMarkdownText(item.text)
                         .font(.system(size: fontSize))
                 }
+            }
+        }
+        .padding(.leading, 4)
+    }
+
+    // MARK: - Task List
+
+    @ViewBuilder
+    private func richTaskListView(items: [TaskListItem]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: item.checked ? "checkmark.square.fill" : "square")
+                        .foregroundStyle(item.checked ? .green : .secondary)
+                        .font(.system(size: fontSize))
+
+                    richInlineMarkdownText(item.text)
+                        .font(.system(size: fontSize))
+                }
+                .padding(.leading, CGFloat(item.indent) * 16)
             }
         }
         .padding(.leading, 4)

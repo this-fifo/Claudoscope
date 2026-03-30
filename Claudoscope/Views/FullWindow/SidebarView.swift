@@ -173,7 +173,25 @@ private struct SessionsSidebarContent: View {
     private func filteredSessions(for project: Project) -> [SessionSummary] {
         let sessions = sessionsByProject[project.id] ?? []
         if filterText.isEmpty { return sessions }
-        return sessions.filter { $0.title.localizedCaseInsensitiveContains(filterText) }
+
+        let matchingIds = Set(
+            sessions
+                .filter { $0.title.localizedCaseInsensitiveContains(filterText) }
+                .map(\.id)
+        )
+
+        return sessions.filter { session in
+            if matchingIds.contains(session.id) { return true }
+            // Include parent if any of its subagents match
+            if session.parentSessionId == nil {
+                return sessions.contains { $0.parentSessionId == session.id && matchingIds.contains($0.id) }
+            }
+            // Include subagent if its parent matches
+            if let parentId = session.parentSessionId {
+                return matchingIds.contains(parentId)
+            }
+            return false
+        }
     }
 }
 
@@ -183,6 +201,14 @@ private struct ProjectGroup: View {
     @Binding var selectedSessionId: String?
     @Binding var selectedProjectId: String?
     @State private var isExpanded = true
+
+    private var topLevelSessions: [SessionSummary] {
+        sessions.filter { $0.parentSessionId == nil }
+    }
+
+    private func subagents(for parentId: String) -> [SessionSummary] {
+        sessions.filter { $0.parentSessionId == parentId }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -205,7 +231,7 @@ private struct ProjectGroup: View {
 
                     Spacer()
 
-                    Text("\(sessions.count)")
+                    Text("\(topLevelSessions.count)")
                         .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                         .padding(.horizontal, 6)
@@ -220,13 +246,54 @@ private struct ProjectGroup: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                ForEach(sessions) { session in
-                    SessionRow(
+                ForEach(topLevelSessions) { session in
+                    let children = subagents(for: session.id)
+                    SessionRowWithSubagents(
                         session: session,
-                        isSelected: selectedSessionId == session.id
+                        subagents: children,
+                        projectId: project.id,
+                        selectedSessionId: $selectedSessionId,
+                        selectedProjectId: $selectedProjectId
+                    )
+                }
+            }
+        }
+    }
+}
+
+private struct SessionRowWithSubagents: View {
+    let session: SessionSummary
+    let subagents: [SessionSummary]
+    let projectId: String
+    @Binding var selectedSessionId: String?
+    @Binding var selectedProjectId: String?
+    @State private var isExpanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SessionRow(
+                session: session,
+                isSelected: selectedSessionId == session.id,
+                subagentCount: subagents.count,
+                onToggleSubagents: subagents.isEmpty ? nil : {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isExpanded.toggle()
+                    }
+                }
+            ) {
+                selectedSessionId = session.id
+                selectedProjectId = projectId
+            }
+
+            if !subagents.isEmpty && isExpanded {
+                ForEach(subagents) { subagent in
+                    SessionRow(
+                        session: subagent,
+                        isSelected: selectedSessionId == subagent.id,
+                        isSubagent: true
                     ) {
-                        selectedSessionId = session.id
-                        selectedProjectId = project.id
+                        selectedSessionId = subagent.id
+                        selectedProjectId = projectId
                     }
                 }
             }
@@ -237,16 +304,36 @@ private struct ProjectGroup: View {
 private struct SessionRow: View {
     let session: SessionSummary
     let isSelected: Bool
+    var subagentCount: Int = 0
+    var isSubagent: Bool = false
+    var onToggleSubagents: (() -> Void)? = nil
     let onSelect: () -> Void
     @State private var isHovered = false
 
     var body: some View {
         Button(action: onSelect) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(session.title)
-                    .font(Typography.body)
-                    .lineLimit(1)
-                    .foregroundStyle(isSelected ? .white : .primary)
+                HStack(spacing: 4) {
+                    if isSubagent {
+                        Image(systemName: "arrow.turn.down.right")
+                            .font(.system(size: 10))
+                            .foregroundStyle(isSelected ? .white.opacity(0.7) : .secondary)
+                    }
+
+                    Text(session.title)
+                        .font(isSubagent ? Typography.caption : Typography.body)
+                        .lineLimit(1)
+                        .foregroundStyle(isSelected ? .white : .primary)
+
+                    if subagentCount > 0 {
+                        Spacer()
+                        SubagentBadge(
+                            count: subagentCount,
+                            isSelected: isSelected,
+                            onToggle: onToggleSubagents
+                        )
+                    }
+                }
 
                 HStack(spacing: 4) {
                     Text(formatRelativeTime(session.lastTimestamp))
@@ -272,7 +359,7 @@ private struct SessionRow: View {
                             .help("Session resumed after 75+ min idle without /clear")
                     }
 
-                    if let model = session.primaryModel {
+                    if subagentCount == 0, let model = session.primaryModel {
                         let family = getModelFamily(model)
                         Spacer()
                         Text(family)
@@ -286,8 +373,8 @@ private struct SessionRow: View {
                 .foregroundStyle(isSelected ? .white.opacity(0.7) : .secondary)
             }
             .padding(.horizontal, 12)
-            .padding(.leading, 18)
-            .padding(.vertical, 6)
+            .padding(.leading, isSubagent ? 34 : 18)
+            .padding(.vertical, isSubagent ? 4 : 6)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(isSelected ? Color.accentColor : (isHovered ? Color.primary.opacity(0.04) : .clear))
             .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -296,6 +383,31 @@ private struct SessionRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+    }
+}
+
+private struct SubagentBadge: View {
+    let count: Int
+    let isSelected: Bool
+    var onToggle: (() -> Void)? = nil
+
+    var body: some View {
+        Button {
+            onToggle?()
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "person.2")
+                    .font(.system(size: 9))
+                Text("\(count)")
+                    .font(Typography.micro)
+            }
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(isSelected ? .white.opacity(0.2) : Color.secondary.opacity(0.15))
+            .clipShape(Capsule())
+            .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
+        }
+        .buttonStyle(.plain)
     }
 }
 

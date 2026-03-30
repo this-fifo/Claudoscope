@@ -21,6 +21,8 @@ enum Spacing {
     static let md: CGFloat = 12
     static let lg: CGFloat = 16
     static let xl: CGFloat = 24
+    static let messagePadding: CGFloat = 12
+    static let turnSpacing: CGFloat = 20
 }
 
 enum Radius {

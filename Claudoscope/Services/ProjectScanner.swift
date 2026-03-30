@@ -35,19 +35,19 @@ struct ProjectScanner {
                     }
 
                     // Collect top-level .jsonl files and subagent .jsonl files
-                    var jsonlEntries: [(url: URL, sessionId: String)] = []
+                    var jsonlEntries: [(url: URL, sessionId: String, parentSessionId: String?)] = []
 
                     for name in topFiles {
                         if name.hasSuffix(".jsonl") {
                             let sid = String(name.dropLast(6))
-                            jsonlEntries.append((dirURL.appendingPathComponent(name), sid))
+                            jsonlEntries.append((dirURL.appendingPathComponent(name), sid, nil))
                         }
                         // Check for subagent files inside session subdirectories
                         let subagentsDir = dirURL.appendingPathComponent(name).appendingPathComponent("subagents")
                         if let subFiles = try? fm.contentsOfDirectory(atPath: subagentsDir.path) {
                             for subFile in subFiles where subFile.hasSuffix(".jsonl") {
                                 let subId = String(subFile.dropLast(6))
-                                jsonlEntries.append((subagentsDir.appendingPathComponent(subFile), subId))
+                                jsonlEntries.append((subagentsDir.appendingPathComponent(subFile), subId, name))
                             }
                         }
                     }
@@ -58,11 +58,14 @@ struct ProjectScanner {
 
                     for entry in jsonlEntries {
                         do {
-                            let summary = try await parser.parseMetadata(
+                            var summary = try await parser.parseMetadata(
                                 url: entry.url,
                                 sessionId: entry.sessionId,
                                 pricingTable: pricingTable
                             )
+                            if let parentId = entry.parentSessionId {
+                                summary = summary.withParentSessionId(parentId)
+                            }
                             sessions.append(summary)
                         } catch {
                             // Skip unreadable files

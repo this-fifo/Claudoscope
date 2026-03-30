@@ -13,27 +13,47 @@ struct ThinkingBlockView: View {
     }
 
     var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            ScrollView {
-                Text(text)
-                    .font(Typography.body)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: Motion.quick)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 10)
+                    Image(systemName: "brain")
+                        .font(.system(size: 11))
+                    Text("Thinking")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundStyle(.secondary)
+                .padding(8)
+                .contentShape(Rectangle())
             }
-            .frame(maxHeight: 400)
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "brain")
-                    .font(.system(size: 11))
-                Text("Thinking")
-                    .font(.system(size: 12, weight: .medium))
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                ScrollView {
+                    Text(text)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                }
+                .frame(maxHeight: 400)
             }
-            .foregroundStyle(.secondary)
         }
-        .padding(8)
-        .background(hasSearchMatch ? Color.yellow.opacity(0.08) : .secondary.opacity(0.05))
+        .background(hasSearchMatch ? Color.yellow.opacity(0.08) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(Color.purple.opacity(0.4))
+                .frame(width: 3)
+        }
         .overlay(
             hasSearchMatch
                 ? RoundedRectangle(cornerRadius: 6).strokeBorder(Color.yellow.opacity(0.4), lineWidth: 1)
@@ -113,6 +133,7 @@ struct ToolCallBlockView: View {
 
             if isExpanded, let result = resultContent {
                 Divider()
+                    .opacity(0.5)
                 ScrollView {
                     Text(result)
                         .font(Typography.code)
@@ -122,19 +143,20 @@ struct ToolCallBlockView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxHeight: 300)
+                .background(Color.primary.opacity(0.03))
             }
         }
         .background(hasSearchMatch ? AnyShapeStyle(Color.yellow.opacity(0.08)) : AnyShapeStyle(.bar.opacity(0.5)))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: Radius.lg)
                 .strokeBorder(hasSearchMatch ? AnyShapeStyle(Color.yellow.opacity(0.4)) : AnyShapeStyle(.quaternary), lineWidth: hasSearchMatch ? 1.5 : 1)
         )
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(toolCategoryColor)
                 .frame(width: 3)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
         }
         .onChange(of: searchText) { _, _ in
             if hasSearchMatch { isExpanded = true }

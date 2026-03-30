@@ -76,6 +76,70 @@ struct SessionSummary: Identifiable, Sendable {
     let modelBreakdown: [ModelTokenBreakdown]
     let toolCallCount: Int
     let observability: SessionObservability
+    let parentSessionId: String?
+
+    init(
+        id: String,
+        projectId: String,
+        slug: String?,
+        title: String,
+        firstTimestamp: String,
+        lastTimestamp: String,
+        messageCount: Int,
+        primaryModel: String?,
+        totalInputTokens: Int,
+        totalOutputTokens: Int,
+        totalCacheReadTokens: Int,
+        totalCacheCreationTokens: Int,
+        totalCacheCreation5mTokens: Int,
+        totalCacheCreation1hTokens: Int,
+        compactionCount: Int,
+        estimatedCost: Double,
+        hasError: Bool,
+        modelBreakdown: [ModelTokenBreakdown],
+        toolCallCount: Int,
+        observability: SessionObservability,
+        parentSessionId: String? = nil
+    ) {
+        self.id = id
+        self.projectId = projectId
+        self.slug = slug
+        self.title = title
+        self.firstTimestamp = firstTimestamp
+        self.lastTimestamp = lastTimestamp
+        self.messageCount = messageCount
+        self.primaryModel = primaryModel
+        self.totalInputTokens = totalInputTokens
+        self.totalOutputTokens = totalOutputTokens
+        self.totalCacheReadTokens = totalCacheReadTokens
+        self.totalCacheCreationTokens = totalCacheCreationTokens
+        self.totalCacheCreation5mTokens = totalCacheCreation5mTokens
+        self.totalCacheCreation1hTokens = totalCacheCreation1hTokens
+        self.compactionCount = compactionCount
+        self.estimatedCost = estimatedCost
+        self.hasError = hasError
+        self.modelBreakdown = modelBreakdown
+        self.toolCallCount = toolCallCount
+        self.observability = observability
+        self.parentSessionId = parentSessionId
+    }
+
+    func withParentSessionId(_ parentId: String) -> SessionSummary {
+        SessionSummary(
+            id: id, projectId: projectId, slug: slug, title: title,
+            firstTimestamp: firstTimestamp, lastTimestamp: lastTimestamp,
+            messageCount: messageCount, primaryModel: primaryModel,
+            totalInputTokens: totalInputTokens, totalOutputTokens: totalOutputTokens,
+            totalCacheReadTokens: totalCacheReadTokens,
+            totalCacheCreationTokens: totalCacheCreationTokens,
+            totalCacheCreation5mTokens: totalCacheCreation5mTokens,
+            totalCacheCreation1hTokens: totalCacheCreation1hTokens,
+            compactionCount: compactionCount, estimatedCost: estimatedCost,
+            hasError: hasError, modelBreakdown: modelBreakdown,
+            toolCallCount: toolCallCount, observability: observability,
+            parentSessionId: parentId
+        )
+    }
 }
 
 struct ModelTokenBreakdown: Sendable {
