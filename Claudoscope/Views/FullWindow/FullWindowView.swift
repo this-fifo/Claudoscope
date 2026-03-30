@@ -37,9 +37,10 @@ struct FullWindowView: View {
     @State private var selectedSettingsSection: String?
 
     // Sidebar resize
-    @SceneStorage("sidebarWidth") private var sidebarWidth: Double = 260
+    @AppStorage("sidebarWidth") private var storedSidebarWidth: Double = 260
+    @State private var sidebarWidth: Double = 260
     @State private var dragStartWidth: CGFloat?
-    @SceneStorage("sidebarCollapsed") private var sidebarCollapsed = false
+    @AppStorage("sidebarCollapsed") private var sidebarCollapsed = false
 
     var body: some View {
         ZStack {
@@ -132,7 +133,9 @@ struct FullWindowView: View {
                     selectedTimelineDay: $selectedTimelineDay
                 )
 
-                SidebarResizeHandle(sidebarWidth: $sidebarWidth, dragStartWidth: $dragStartWidth)
+                SidebarResizeHandle(sidebarWidth: $sidebarWidth, dragStartWidth: $dragStartWidth) {
+                    storedSidebarWidth = sidebarWidth
+                }
             }
 
             MainPanelView(
@@ -156,6 +159,7 @@ struct FullWindowView: View {
             )
         }
         .animation(.easeInOut(duration: 0.2), value: sidebarCollapsed)
+        .onAppear { sidebarWidth = storedSidebarWidth }
     }
 
     @ViewBuilder
@@ -196,6 +200,7 @@ struct FullWindowView: View {
 private struct SidebarResizeHandle: View {
     @Binding var sidebarWidth: Double
     @Binding var dragStartWidth: CGFloat?
+    var onPersist: (() -> Void)? = nil
     @State private var isHovered = false
 
     private let minWidth: CGFloat = 180
@@ -205,7 +210,7 @@ private struct SidebarResizeHandle: View {
     var body: some View {
         Rectangle()
             .fill(isHovered ? Color.accentColor.opacity(0.3) : .clear)
-            .frame(width: 5)
+            .frame(width: 8)
             .contentShape(Rectangle())
             .onHover { hovering in
                 isHovered = hovering
@@ -226,12 +231,14 @@ private struct SidebarResizeHandle: View {
                     }
                     .onEnded { _ in
                         dragStartWidth = nil
+                        onPersist?()
                     }
             )
             .onTapGesture(count: 2) {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     sidebarWidth = defaultWidth
                 }
+                onPersist?()
             }
     }
 }

@@ -9,9 +9,14 @@ struct UserMessageBubble: View {
         guard let content = record.message?.content else { return "" }
         var text = content.textContent
         // Strip system tags
-        text = text.replacingOccurrences(of: #"<system-reminder>[\s\S]*?</system-reminder>"#, with: "", options: .regularExpression)
-        text = text.replacingOccurrences(of: #"<local-command-caveat>[\s\S]*?</local-command-caveat>"#, with: "", options: .regularExpression)
-        text = text.replacingOccurrences(of: #"<user-prompt-submit-hook>[\s\S]*?</user-prompt-submit-hook>"#, with: "", options: .regularExpression)
+        let tagPatterns = [
+            "system-reminder", "local-command-caveat", "user-prompt-submit-hook",
+            "command-name", "command-message", "command-args",
+            "local-command-stdout", "available-deferred-tools", "new-diagnostics"
+        ]
+        for tag in tagPatterns {
+            text = text.replacingOccurrences(of: "<\(tag)>[\\s\\S]*?</\(tag)>", with: "", options: .regularExpression)
+        }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -105,18 +110,14 @@ struct AssistantMessageView: View {
                     }
                 }
 
-                if turnDuration != nil || effortLevel != .low || parallelToolCount > 1 {
-                    HStack(spacing: 4) {
-                        if let td = turnDuration, td.durationMs > 0 {
-                            TurnDurationBadge(durationMs: td.durationMs)
-                        }
-                        if effortLevel != .low {
-                            EffortLevelBadge(level: effortLevel)
-                        }
-                        if parallelToolCount > 1 {
-                            ParallelToolBadge(count: parallelToolCount)
-                        }
-                    }
+                if let td = turnDuration, td.durationMs > 1000 {
+                    TurnDurationBadge(durationMs: td.durationMs)
+                }
+                if effortLevel == .high || effortLevel == .ultrathink {
+                    EffortLevelBadge(level: effortLevel)
+                }
+                if parallelToolCount > 1 {
+                    ParallelToolBadge(count: parallelToolCount)
                 }
             }
 
