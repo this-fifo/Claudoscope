@@ -3,9 +3,7 @@ import SwiftUI
 /// The popover content that can open the full window via NSWindow
 struct MenuBarPopoverContent: View {
     @Environment(SessionStore.self) private var store
-    @Environment(UpdateService.self) private var updateService
     @State private var showAbout = false
-    @State private var showUpToDate = false
     @AppStorage("hasSeenRepositionTip") private var hasSeenTip = false
 
     var body: some View {
@@ -61,7 +59,7 @@ struct MenuBarPopoverContent: View {
                 // Recent sessions
                 if !store.recentSessions.isEmpty {
                     RecentSessionsList(sessions: store.recentSessions) { _ in
-                        MainWindowController.shared.open(store: store, updateService: updateService)
+                        MainWindowController.shared.open(store: store)
                     }
                     .padding(.vertical, 8)
                     Divider()
@@ -96,12 +94,8 @@ struct MenuBarPopoverContent: View {
             // Actions
             VStack(spacing: 0) {
                 PopoverMenuButton(label: "Dashboard", systemImage: "macwindow", shortcut: "\u{2318}O") {
-                    MainWindowController.shared.open(store: store, updateService: updateService)
+                    MainWindowController.shared.open(store: store)
                 }
-
-                Divider()
-
-                UpdateMenuButton(showUpToDate: $showUpToDate)
 
                 Divider()
 
@@ -214,58 +208,3 @@ struct PopoverMenuButton: View {
     }
 }
 
-struct UpdateMenuButton: View {
-    @Environment(UpdateService.self) private var updateService
-    @Binding var showUpToDate: Bool
-    @State private var isHovered = false
-
-    var body: some View {
-        Button {
-            Task {
-                showUpToDate = false
-                updateService.clearSkippedVersion()
-                await updateService.checkForUpdates()
-                if updateService.updateAvailable == nil, updateService.error == nil {
-                    showUpToDate = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        showUpToDate = false
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(Typography.body)
-                    .frame(width: 16)
-                Text(showUpToDate ? "You're up to date!" : "Check for Updates...")
-                    .font(Typography.body)
-                    .foregroundStyle(showUpToDate ? .green : .primary)
-                Spacer()
-                if updateService.isChecking {
-                    ProgressView()
-                        .controlSize(.small)
-                } else if showUpToDate {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(Typography.body)
-                        .foregroundStyle(.green)
-                } else if updateService.updateAvailable != nil {
-                    Text("New")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(.orange))
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isHovered ? Color.white.opacity(0.08) : Color.clear)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-    }
-}

@@ -2,19 +2,17 @@
   <img src="Claudoscope/Resources/logo-c-t.png" alt="Claudoscope" width="200" />
 </p>
 
-<h1 align="center">Claudoscope</h1>
+<h1 align="center">Claudoscope (Personal Fork)</h1>
 
 <p align="center">
   A native macOS menu bar app for exploring, analyzing, and managing your Claude Code sessions.
 </p>
 
-<p align="center">
-  <a href="https://github.com/cordwainersmith/Claudoscope/releases/tag/v0.4.7"><img src="https://img.shields.io/github/v/release/cordwainersmith/Claudoscope?color=blue" alt="Release"></a>
-  <a href="https://claudoscope.com/"><img src="https://img.shields.io/badge/website-claudoscope.com-6366f1" alt="Website"></a>
-  <img src="https://img.shields.io/badge/platform-macOS%2014.0+-000000?logo=apple&logoColor=white" alt="Platform">
-  <img src="https://img.shields.io/badge/install-brew%20install%20--cask%20claudoscope-FBB040?logo=homebrew&logoColor=white" alt="Homebrew">
-  <a href="https://dl.claudoscope.com/stats"><img src="https://img.shields.io/endpoint?url=https://dl.claudoscope.com/badge&color=green" alt="Downloads"></a>
-</p>
+> **This is a personal fork** maintained for private use. The auto-update mechanism, download tracking infrastructure, and distribution tooling have been removed. This fork is built from source and run locally.
+>
+> **Contributions and issues are not accepted here.** If you'd like to contribute or report a bug, please do so at the original repository: [cordwainersmith/Claudoscope](https://github.com/cordwainersmith/Claudoscope).
+>
+> Thank you to [cordwainersmith](https://github.com/cordwainersmith) for building and open-sourcing Claudoscope.
 
 ---
 
@@ -23,7 +21,7 @@ Claudoscope reads your local Claude Code session files (`~/.claude/projects/`) a
 ## Table of Contents
 
 - [Requirements](#requirements)
-- [Installation](#installation)
+- [Building from Source](#building-from-source)
 - [How It Works](#how-it-works)
 - [Menu Bar Widget](#menu-bar-widget)
 - [Dashboard Window](#dashboard-window)
@@ -49,30 +47,17 @@ Claudoscope reads your local Claude Code session files (`~/.claude/projects/`) a
 - Apple Silicon Mac (M1 or later). Intel Macs are not currently supported.
 - Claude Code installed and used at least once (so that `~/.claude/projects/` exists with session data)
 
-## Installation
+## Building from Source
 
-### Homebrew (recommended)
-
-```bash
-brew tap cordwainersmith/claudoscope
-brew install --cask claudoscope
-```
-
-### Updating
-
-Claudoscope checks for updates automatically via GitHub Releases. When a new version is available, an indicator appears in the menu bar popover and in Settings > Updates. Clicking "Download and Install" downloads the new DMG, verifies its code signature, replaces the app, and relaunches. No manual steps required.
-
-You can also update via Homebrew:
+This fork uses [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate the Xcode project:
 
 ```bash
-brew upgrade --cask claudoscope
+brew install xcodegen
+xcodegen generate
+open Claudoscope.xcodeproj
 ```
 
-Or disable automatic checks entirely in Settings > Updates.
-
-### Manual install
-
-Download the latest `Claudoscope.dmg` from the [Releases](https://github.com/cordwainersmith/Claudoscope/releases) page, open it, and drag Claudoscope to your Applications folder.
+Then build and run from Xcode (Cmd+R). The app is ad-hoc signed and runs locally without an Apple Developer account.
 
 ## How It Works
 

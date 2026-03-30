@@ -15,11 +15,7 @@ final class MainWindowController {
 
     private var window: NSWindow?
 
-    private var updateService: UpdateService?
-
-    func open(store: SessionStore, updateService: UpdateService? = nil) {
-        if let updateService { self.updateService = updateService }
-
+    func open(store: SessionStore) {
         // If window exists and is visible, just bring it forward
         if let window, window.isVisible {
             DispatchQueue.main.async {
@@ -32,7 +28,6 @@ final class MainWindowController {
 
         let contentView = FullWindowView()
             .environment(store)
-            .environment(self.updateService ?? UpdateService())
             .frame(minWidth: 900, minHeight: 600)
 
         let hostingView = NSHostingView(rootView: contentView)

@@ -17,7 +17,6 @@ struct SettingsSidebarContent: View {
         ("general", "gear", "General"),
         ("environment", "terminal", "Environment"),
         ("pricing", "dollarsign.circle", "Pricing"),
-        ("updates", "arrow.triangle.2.circlepath", "Updates"),
     ]
 
     private var filteredSections: [(id: String, icon: String, label: String)] {
